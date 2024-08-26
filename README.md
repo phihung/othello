@@ -12,9 +12,14 @@ license: apache-2.0
 
 Othello Game implemented in Rust and python.
 
+```bash
+pip install .
+othello-ui
+```
+
 ## Dev
 
 ```bash
 uv sync
-python ui.py
+python python/othello/ui.py
 ```

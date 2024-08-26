@@ -4,7 +4,6 @@ from fasthtml.common import (
     Div,
     serve,
     Script,
-    Span,
     cookie,
     A,
     RedirectResponse,
@@ -16,7 +15,6 @@ app, rt = fast_app(
     hdrs=[Script(src="https://cdn.tailwindcss.com")],
     pico=False,
     ws_hdr=True,
-    live=True,
 )
 
 games = {}
@@ -88,7 +86,7 @@ def make_status_bar(state):
             f"Black: {state.black_score}",
             cls="bg-black text-white w-32 h-12 text-center content-center",
         ),
-        Div(Span(status, id="status", hx_swap_oob="true"), cls="content-center"),
+        Div(status, cls="content-center"),
         Div(
             f"White: {state.white_score}",
             cls="bg-white text-black w-32 h-12 text-center content-center",
@@ -110,7 +108,7 @@ def get_status(state):
             status = "Game draw!"
     elif state.player == "W":
         status = "White turn"
-    return Span(status, id="status", hx_swap_oob="true")
+    return status
 
 
 @app.ws("/wscon")
@@ -147,4 +145,9 @@ async def ws(uuid: str, pos: int, send):
             break
 
 
-serve()
+def main():
+    serve("othello.ui", reload=False)
+
+
+if __name__ == "__main__":
+    serve()

@@ -1,21 +1,26 @@
-use crate::{bits::BitBoard, consts::ALPHA_BETA_SCORES, game::Game};
+use crate::{bits::BitBoard, game::Game};
 use pyo3::prelude::*;
 use rand::prelude::*;
 
-pub trait AI {
-    fn find_move(&self, board: &Game) -> usize;
+pub trait Bot {
+    /// Find the next move (an int between 0 and 63)
+    /// Return -1 if there is no legal move
+    fn find_move(&self, board: &Game) -> i32;
 }
 
 #[pyclass]
 pub struct AlphaBetaBot {
+    #[pyo3(get)]
     depth: usize,
 }
 
-impl AI for AlphaBetaBot {
-    fn find_move(&self, board: &Game) -> usize {
+impl Bot for AlphaBetaBot {
+    fn find_move(&self, g: &Game) -> i32 {
+        let count = (g.board.0 + g.board.1).count_ones() as usize;
         let (_, move_) = self.do_search(
+            &AlphaBetaEval { count },
             &mut rand::thread_rng(),
-            &board.board,
+            &g.board,
             self.depth,
             -i32::MAX,
             i32::MAX,
@@ -32,7 +37,7 @@ impl AlphaBetaBot {
     }
 
     #[pyo3(name = "find_move")]
-    fn run(&self, board: &Game) -> usize {
+    fn run(&self, board: &Game) -> i32 {
         self.find_move(board)
     }
 }
@@ -40,24 +45,25 @@ impl AlphaBetaBot {
 impl AlphaBetaBot {
     fn do_search(
         &self,
+        eval: &AlphaBetaEval,
         rng: &mut ThreadRng,
         board: &BitBoard,
         depth: usize,
         mut alpha: i32,
         beta: i32,
-    ) -> (i32, usize) {
+    ) -> (i32, i32) {
         if depth == 0 {
-            return (self.evaluate(board), 0);
+            return (eval.evaluate(board), -1);
         }
         let mut moves = board.available_moves_list();
         if moves.is_empty() {
             let board = board.pass_move();
             let moves = board.available_moves();
             if moves == 0 {
-                return (self.final_evaluate(&board), 0);
+                return (eval.final_evaluate(&board), -1);
             }
-            let (score, _) = self.do_search(rng, &board, depth - 1, -beta, -alpha);
-            return (-score, 0);
+            let (score, _) = self.do_search(eval, rng, &board, depth - 1, -beta, -alpha);
+            return (-score, -1);
         }
         moves.shuffle(rng);
         let mut best_move = moves[0];
@@ -66,6 +72,7 @@ impl AlphaBetaBot {
                 break;
             }
             let (score, _) = self.do_search(
+                eval,
                 rng,
                 &board.make_move(move_).unwrap(),
                 depth - 1,
@@ -77,23 +84,31 @@ impl AlphaBetaBot {
                 best_move = move_
             }
         }
-        (alpha, best_move)
+        (alpha, best_move as i32)
     }
+}
 
+struct AlphaBetaEval {
+    // Number of pieces at the beginning of search
+    count: usize,
+}
+
+impl AlphaBetaEval {
     fn evaluate(&self, board: &BitBoard) -> i32 {
-        // let (sc1, sc2) = board.count();
-        // if sc1 + sc2 > 54 {
-        //     return 5 * (sc1 - sc2);
-        // }
         let scorer = |mask: u64| {
             (0..64)
                 .filter(|i| mask >> i & 1 == 1)
-                .map(|i| ALPHA_BETA_SCORES[i])
+                .map(|i| Self::POSITION_SCORES[i])
                 .sum::<i32>()
         };
         let n_moves0 = board.available_moves().count_ones() as i32;
         let n_moves1 = board.pass_move().available_moves().count_ones() as i32;
-        scorer(board.0) - scorer(board.1) + 10 * n_moves0 - 10 * n_moves1
+        let mut score = scorer(board.0) - scorer(board.1) + 10 * n_moves0 - 10 * n_moves1;
+        if self.count > 54 {
+            let (cnt0, cnt1) = board.count();
+            score += 2 * (self.count as i32 - 54) * (cnt0 - cnt1) as i32;
+        }
+        score
     }
 
     fn final_evaluate(&self, board: &BitBoard) -> i32 {
@@ -106,39 +121,41 @@ impl AlphaBetaBot {
             0
         }
     }
+
+    #[rustfmt::skip]
+    const POSITION_SCORES: [i32; 64] = [
+        300, -40,  20,   5,   5,  20, -40, 300,
+        -40, -80,  -5,  -5,  -5,  -5, -80, -40,
+        20,  -5,  15,   1,   1,  15,  -5,  20,
+        5,  -5,   1,   1,   1,   1,  -5,   5,
+        5,  -5,   1,   1,   1,   1,  -5,   5,
+        20,  -5,  15,   1,   1,  15,  -5,  20,
+        -40, -80,  -5,  -5,  -5,  -5, -80, -40,
+        300, -40,  20,   5,   5,  20, -40, 300,
+    ];
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{bits::BitBoard, game::Game};
+    use crate::game::Game;
 
-    use super::{AlphaBetaBot, AI};
+    use super::{AlphaBetaBot, Bot};
 
     #[test]
     fn test() {
         let mut b = Game::default();
-        let ai = [AlphaBetaBot { depth: 5 }, AlphaBetaBot { depth: 6 }];
+        let ai = [AlphaBetaBot { depth: 6 }, AlphaBetaBot { depth: 3 }];
 
-        for i in 0..80 {
-            if b.available_moves().is_empty() {
+        while !b.state.ended {
+            let pos = ai[b.current_player].find_move(&b);
+            if pos < 0 {
                 b.pass_move();
                 println!("PASS");
             } else {
-                let move_ = ai[i % 2].find_move(&b);
-                let state = b.make_move(move_);
+                b.make_move(pos as usize);
                 println!("{}\n---\n", b.__repr__());
-                if state.ended {
-                    break;
-                }
             }
         }
-    }
-
-    #[test]
-    fn test_evaluate() {
-        let ai = AlphaBetaBot { depth: 3 };
-        let b = BitBoard(3, 12);
-        println!("{:?}", b);
-        assert_eq!(ai.evaluate(&BitBoard(3, 12)), 245);
+        assert!(b.state.black_score > b.state.white_score)
     }
 }
