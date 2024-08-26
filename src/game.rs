@@ -6,7 +6,7 @@ const PLAYERS: [char; 2] = ['B', 'W'];
 
 #[pyclass]
 #[derive(Clone)]
-pub struct Board {
+pub struct Game {
     pub board: BitBoard,
     pub current_player: usize, // 0 or 1
     #[pyo3(get)]
@@ -32,7 +32,7 @@ impl State {
 }
 
 #[pymethods]
-impl Board {
+impl Game {
     #[staticmethod]
     pub fn default() -> Self {
         let board = BitBoard::default();
@@ -75,9 +75,9 @@ impl Board {
         }
         if state.ended {
             s.push_str(match state.black_score.cmp(&state.white_score) {
-                Equal => "Game draw!",
-                Less => "White won!",
-                Greater => "Black won!",
+                Equal => "\nGame draw!",
+                Less => "\nWhite won!",
+                Greater => "\nBlack won!",
             });
         } else {
             s.push_str(&format!(
@@ -90,7 +90,7 @@ impl Board {
     }
 }
 
-impl Board {
+impl Game {
     fn compute_state(board: &BitBoard, current_player: usize) -> State {
         let (cnt0, cnt1) = board.count();
         let moves = board.available_moves();
@@ -121,11 +121,12 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
-    use super::Board;
+    use super::Game;
+    use crate::bits::BitBoard;
 
     #[test]
-    fn default_test() {
-        let mut b = Board::default();
+    fn test_1() {
+        let mut b = Game::default();
 
         assert_eq!(b.available_moves(), &[19, 26, 37, 44]);
         b.make_move(44);
@@ -138,5 +139,21 @@ mod tests {
         assert_eq!(b.current_player, 0);
 
         assert_eq!(b.__repr__(), "\n........\n........\n..?????.\n...WWW..\n...BB...\n....B...\n........\n........\nB to play. Available moves: [18, 19, 20, 21, 22]");
+    }
+
+    #[test]
+    fn test_2() {
+        let b = BitBoard(2, 1);
+        let mut g = Game {
+            current_player: 0,
+            state: Game::compute_state(&b, 0),
+            board: b,
+        };
+        assert_eq!(g.state.can_move, false);
+        g.pass_move();
+        assert_eq!(g.state.can_move, true);
+        g.make_move(2);
+        assert_eq!(g.state.ended, true);
+        assert_eq!(g.state.white_score, 3);
     }
 }

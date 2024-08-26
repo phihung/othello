@@ -1,18 +1,18 @@
-use crate::{bits::BitBoard, board::Board, consts::ALPHA_BETA_SCORES};
+use crate::{bits::BitBoard, consts::ALPHA_BETA_SCORES, game::Game};
 use pyo3::prelude::*;
 use rand::prelude::*;
 
 pub trait AI {
-    fn run(&self, board: &Board) -> usize;
+    fn find_move(&self, board: &Game) -> usize;
 }
 
 #[pyclass]
-pub struct AlphaBeta {
+pub struct AlphaBetaBot {
     depth: usize,
 }
 
-impl AI for AlphaBeta {
-    fn run(&self, board: &Board) -> usize {
+impl AI for AlphaBetaBot {
+    fn find_move(&self, board: &Game) -> usize {
         let (_, move_) = self.do_search(
             &mut rand::thread_rng(),
             &board.board,
@@ -25,18 +25,19 @@ impl AI for AlphaBeta {
 }
 
 #[pymethods]
-impl AlphaBeta {
+impl AlphaBetaBot {
     #[new]
     pub fn new(depth: usize) -> Self {
         Self { depth }
     }
 
-    fn find_move(&self, board: &Board) -> usize {
-        self.run(board)
+    #[pyo3(name = "find_move")]
+    fn run(&self, board: &Game) -> usize {
+        self.find_move(board)
     }
 }
 
-impl AlphaBeta {
+impl AlphaBetaBot {
     fn do_search(
         &self,
         rng: &mut ThreadRng,
@@ -109,21 +110,21 @@ impl AlphaBeta {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bits::BitBoard, board::Board};
+    use crate::{bits::BitBoard, game::Game};
 
-    use super::{AlphaBeta, AI};
+    use super::{AlphaBetaBot, AI};
 
     #[test]
     fn test() {
-        let mut b = Board::default();
-        let ai = [AlphaBeta { depth: 5 }, AlphaBeta { depth: 6 }];
+        let mut b = Game::default();
+        let ai = [AlphaBetaBot { depth: 5 }, AlphaBetaBot { depth: 6 }];
 
         for i in 0..80 {
             if b.available_moves().is_empty() {
                 b.pass_move();
                 println!("PASS");
             } else {
-                let move_ = ai[i % 2].run(&b);
+                let move_ = ai[i % 2].find_move(&b);
                 let state = b.make_move(move_);
                 println!("{}\n---\n", b.__repr__());
                 if state.ended {
@@ -131,12 +132,11 @@ mod tests {
                 }
             }
         }
-        assert!(false);
     }
 
     #[test]
     fn test_evaluate() {
-        let ai = AlphaBeta { depth: 3 };
+        let ai = AlphaBetaBot { depth: 3 };
         let b = BitBoard(3, 12);
         println!("{:?}", b);
         assert_eq!(ai.evaluate(&BitBoard(3, 12)), 245);

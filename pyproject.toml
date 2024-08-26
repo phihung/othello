@@ -5,11 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "maturin>=1.7.1",
     "python-fasthtml>=0.4.5",
-]
-dev-dependencies = [
-    "ruff>=0.6.2",
 ]
 
 [build-system]
@@ -18,3 +14,8 @@ build-backend = "maturin"
 
 [tool.uv]
 managed = true
+dev-dependencies = [
+    "ruff>=0.6.2",
+    "pip>=24.2",
+    "maturin>=1,<2"
+]

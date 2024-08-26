@@ -12,9 +12,9 @@ license: apache-2.0
 
 Othello Game implemented in Rust and python.
 
-## Run
+## Dev
 
 ```bash
 uv sync
-python fasthtml_ui.py
+python ui.py
 ```
