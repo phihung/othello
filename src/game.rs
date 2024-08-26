@@ -22,6 +22,7 @@ pub struct State {
     pub white_score: i32,
     pub cells: Vec<char>,
     pub can_move: bool,
+    pub last_move: i32,
 }
 
 #[pymethods]
@@ -36,7 +37,7 @@ impl Game {
     #[staticmethod]
     pub fn default() -> Self {
         let board = BitBoard::default();
-        let state = Self::compute_state(&board, 0);
+        let state = Self::compute_state(&board, 0, -1);
         Self {
             board,
             current_player: 0,
@@ -52,7 +53,7 @@ impl Game {
     pub fn pass_move(&mut self) -> State {
         self.board = self.board.pass_move();
         self.current_player = 1 - self.current_player;
-        self.state = Self::compute_state(&self.board, self.current_player);
+        self.state = Self::compute_state(&self.board, self.current_player, -1);
         self.state.clone()
     }
 
@@ -60,7 +61,7 @@ impl Game {
         let next = self.board.make_move(place).unwrap();
         self.current_player = 1 - self.current_player;
         self.board = next;
-        self.state = Self::compute_state(&self.board, self.current_player);
+        self.state = Self::compute_state(&self.board, self.current_player, place as i32);
         self.state.clone()
     }
 
@@ -91,7 +92,7 @@ impl Game {
 }
 
 impl Game {
-    fn compute_state(board: &BitBoard, current_player: usize) -> State {
+    fn compute_state(board: &BitBoard, current_player: usize, last_move: i32) -> State {
         let (cnt0, cnt1) = board.count();
         let moves = board.available_moves();
         let cells: Vec<_> = (0..64)
@@ -115,6 +116,7 @@ impl Game {
             white_score: if player == 'W' { cnt0 } else { cnt1 },
             cells,
             can_move: moves != 0,
+            last_move,
         }
     }
 }
@@ -146,7 +148,7 @@ mod tests {
         let b = BitBoard(2, 1);
         let mut g = Game {
             current_player: 0,
-            state: Game::compute_state(&b, 0),
+            state: Game::compute_state(&b, 0, -1),
             board: b,
         };
         assert_eq!(g.state.can_move, false);

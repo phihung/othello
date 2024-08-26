@@ -1,44 +1,14 @@
-use std::fmt::Write;
-
 use pyo3::prelude::*;
 
 #[pyclass]
 #[derive(Clone)]
 pub struct BitBoard(pub u64, pub u64);
 
-impl core::fmt::Debug for BitBoard {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(&self.to_string(('B', 'W')))?;
-        Ok(())
-    }
-}
-
 #[pymethods]
 impl BitBoard {
     #[new]
     pub fn default() -> Self {
         Self(0x0000_0008_1000_0000, 0x0000_0010_0800_0000)
-    }
-
-    fn __repr__(&self) -> String {
-        self.to_string(('B', 'W'))
-    }
-
-    pub fn to_string(&self, players: (char, char)) -> String {
-        let mut s = String::with_capacity(64 + 8);
-        for i in (0..64).rev() {
-            s.write_char(match (self.0 >> i & 1, self.1 >> i & 1) {
-                (0, 0) => '.',
-                (1, 0) => players.0,
-                (0, 1) => players.1,
-                (_, _) => unreachable!(),
-            })
-            .unwrap();
-            if i % 8 == 0 {
-                s.write_char('\n').unwrap();
-            }
-        }
-        s
     }
 
     /// Returns bitboards of `self`.

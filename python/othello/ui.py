@@ -1,3 +1,5 @@
+import asyncio
+import time
 from uuid import uuid1
 from fasthtml.common import (
     fast_app,
@@ -18,7 +20,7 @@ app, rt = fast_app(
 )
 
 games = {}
-bot = AlphaBetaBot(7)
+bot = AlphaBetaBot(8)
 
 
 @rt("/")
@@ -34,7 +36,7 @@ def get(uuid: str = None):
 
 @app.get("/new")
 def new(uuid: str = None):
-    if uuid is not None:
+    if uuid is not None and uuid in games:
         del games[uuid]
     return RedirectResponse("/")
 
@@ -45,7 +47,13 @@ def make_app(uuid):
         Div(
             make_status_bar(state),
             Div(
-                *(make_cell(state.cells[i], i, uuid) for i in range(64)),
+                *(
+                    Div(
+                        make_stone(state.cells[i], i, uuid),
+                        cls="size-12 xl:size-16 border border-sky-100",
+                    )
+                    for i in range(64)
+                ),
                 cls="grid grid-cols-8 gap-0 bg-green-300 mb-5 lg:mt-5",
                 hx_ext="ws",
                 ws_connect="/wscon",
@@ -57,26 +65,23 @@ def make_app(uuid):
     )
 
 
-def make_cell(v, pos, uuid):
+def make_stone(v, pos, uuid, highlight=False):
     style = "m-2 size-8 lg:size-12 rounded-full"
-    stone = None
+    if highlight:
+        style += " border-indigo-500 border-2"
+    stone = {}
     if v == "?":
-        stone = Div(
+        stone = dict(
             hx_trigger="click",
             hx_vals=f'{{"pos": {pos}, "uuid": "{uuid}"}}',
             ws_send=True,
             cls=f"{style} cursor-pointer bg-purple-200 hover:bg-purple-300",
         )
     elif v == "B":
-        stone = Div(cls=f"{style} shadow-sm bg-black shadow-white")
+        stone = dict(cls=f"{style} shadow-sm bg-black shadow-white")
     elif v == "W":
-        stone = Div(cls=f"{style} shadow-sm bg-white shadow-black")
-    return Div(
-        stone,
-        id=f"cell-{pos}",
-        cls="size-12 xl:size-16 border border-sky-100",
-        hx_swap_oob="true",
-    )
+        stone = dict(cls=f"{style} shadow-sm bg-white shadow-black")
+    return Div(**stone, id=f"cell-{pos}", hx_swap_oob="true")
 
 
 def make_status_bar(state):
@@ -119,12 +124,11 @@ async def ws(uuid: str, pos: int, send):
         prev_state = game.state
         state = game.make_move(pos) if pos >= 0 else game.pass_move()
 
-        await send(make_cell(state.cells[pos], pos, uuid))
-        # await asyncio.sleep(1)
+        await send(make_stone(state.cells[pos], pos, uuid, highlight=True))
 
         for i, (c1, c2) in enumerate(zip(prev_state.cells, state.cells)):
-            if i != pos and c1 != c2:
-                await send(make_cell(c2, i, uuid))
+            if i != pos and c1 != c2 or i == prev_state.last_move:
+                await send(make_stone(c2, i, uuid))
         await send(make_status_bar(state))
         return state
 
@@ -135,7 +139,9 @@ async def ws(uuid: str, pos: int, send):
 
     # Bot
     while True:
+        now = time.time()
         pos = bot.find_move(game) if state.can_move else -1
+        await asyncio.sleep(abs(1 - time.time() + now))
         state = await play(pos)
         if not state.can_move and not state.ended:
             # Human has no move
