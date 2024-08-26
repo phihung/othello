@@ -1,0 +1,18 @@
+[package]
+name = "othello"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "othello"
+
+crate-type = ["cdylib", "rlib"]
+# crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22.2", features = ["extension-module"] }
+bitintr = "0.3.0"
+rand = "0.8.5"
+
+[patch.crates-io]
+bitintr = { git = "https://github.com/finnbear/bitintr", branch = "remove_nightly" }
