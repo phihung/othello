@@ -1,3 +1,3 @@
-from othello._othello import Game, AlphaBetaBot
+from othello._othello import Game, AlphaBetaBot, BitBoard, State
 
-__all__ = ["Game", "AlphaBetaBot"]
+__all__ = ["Game", "AlphaBetaBot", "BitBoard", "State"]
