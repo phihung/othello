@@ -23,16 +23,20 @@ def run_matches(bot1, bot2, n):
     return cnts
 
 
+def _str(bot):
+    return f"AlphaBetaBot({bot.depth}, {bot.exhaustive_depth})"
+
+
 if __name__ == "__main__":
     for i in range(2, 10):
-        bot1 = AlphaBetaBot(i)
-        bot2 = AlphaBetaBot(i + 1)
-        print(f"AlphaBetaBot({bot1.depth}) vs AlphaBetaBot({bot2.depth})")
+        bot1 = AlphaBetaBot(i, 14)
+        bot2 = AlphaBetaBot(i + 1, 14)
+        print(f"{_str(bot1)} vs {_str(bot2)})")
         draw, win, lost = run_matches(bot1, bot2, 10)
         print(f"Win: {win} | Draw: {draw} | Lost: {lost}")
         print("----")
 
-        print(f"AlphaBetaBot({bot2.depth}) vs AlphaBetaBot({bot1.depth})")
+        print(f"{_str(bot2)} vs {_str(bot1)})")
         draw, win, lost = run_matches(bot2, bot1, 10)
         print(f"Win: {win} | Draw: {draw} | Lost: {lost}")
         print("----")

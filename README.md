@@ -21,5 +21,6 @@ othello-ui
 
 ```bash
 uv sync
+maturin develop
 python python/othello/ui.py
 ```

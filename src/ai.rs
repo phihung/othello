@@ -12,16 +12,25 @@ pub trait Bot {
 pub struct AlphaBetaBot {
     #[pyo3(get)]
     depth: usize,
+
+    // Do exhaustive search when there is less than exhaustive_depth empty square
+    #[pyo3(get)]
+    exhaustive_depth: usize,
 }
 
 impl Bot for AlphaBetaBot {
     fn find_move(&self, g: &Game) -> i32 {
         let count = (g.board.0 + g.board.1).count_ones() as usize;
+        let depth = if count > 64 - self.exhaustive_depth {
+            100
+        } else {
+            self.depth
+        };
         let (_, move_) = self.do_search(
             &AlphaBetaEval { count },
             &mut rand::thread_rng(),
             &g.board,
-            self.depth,
+            depth,
             -i32::MAX,
             i32::MAX,
         );
@@ -32,8 +41,11 @@ impl Bot for AlphaBetaBot {
 #[pymethods]
 impl AlphaBetaBot {
     #[new]
-    pub fn new(depth: usize) -> Self {
-        Self { depth }
+    pub fn new(depth: usize, exhaustive_depth: usize) -> Self {
+        Self {
+            depth,
+            exhaustive_depth,
+        }
     }
 
     #[pyo3(name = "find_move")]
@@ -60,7 +72,7 @@ impl AlphaBetaBot {
             let board = board.pass_move();
             let moves = board.available_moves();
             if moves == 0 {
-                return (eval.final_evaluate(&board), -1);
+                return (-eval.final_evaluate(&board), -1);
             }
             let (score, _) = self.do_search(eval, rng, &board, depth - 1, -beta, -alpha);
             return (-score, -1);
@@ -106,7 +118,7 @@ impl AlphaBetaEval {
         let mut score = scorer(board.0) - scorer(board.1) + 10 * n_moves0 - 10 * n_moves1;
         if self.count > 54 {
             let (cnt0, cnt1) = board.count();
-            score += 2 * (self.count as i32 - 54) * (cnt0 - cnt1) as i32;
+            score += 2 * (self.count as i32 - 54) * (cnt0 - cnt1) as i32
         }
         score
     }
@@ -114,9 +126,9 @@ impl AlphaBetaEval {
     fn final_evaluate(&self, board: &BitBoard) -> i32 {
         let (sc1, sc2) = board.count();
         if sc1 < sc2 {
-            -i32::MAX
+            -i32::MAX + (64 + sc1 - sc2)
         } else if sc1 > sc2 {
-            i32::MAX
+            i32::MAX - (64 + sc1 - sc2)
         } else {
             0
         }
@@ -144,7 +156,7 @@ mod tests {
     #[test]
     fn test() {
         let mut b = Game::default();
-        let ai = [AlphaBetaBot { depth: 6 }, AlphaBetaBot { depth: 3 }];
+        let ai = [AlphaBetaBot::new(3, 0), AlphaBetaBot::new(6, 10)];
 
         while !b.state.ended {
             let pos = ai[b.current_player].find_move(&b);

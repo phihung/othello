@@ -20,7 +20,7 @@ app, rt = fast_app(
 )
 
 games = {}
-bot = AlphaBetaBot(8)
+bot = AlphaBetaBot(7, 15)
 
 
 @rt("/")
